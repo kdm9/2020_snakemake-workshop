@@ -35,8 +35,10 @@ Some recommendations:
 For the rest of today, we'll focus on a variant calling workflow. This relatively simple workflow consists of several conceptual steps, each of which are made up of one or more commands. Step 2 depends on the output of step 1, and step 3 on step 2, etc. I have already implemented this workflow for you, which you can download and extract using the following commands:
 
 ```bash
-wget ... #TODO
-tar xvf ...
+wget -O bash_version.tar https://github.com/kdmurray91/2020_snakemake-workshop/raw/master/bash_version.tar
+tar xvf bash_version.tar
+cd bash/rawdata/ && bash getref.sh
+cd ..
 ```
 
 These large conceptual steps are:
