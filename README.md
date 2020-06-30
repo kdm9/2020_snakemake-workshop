@@ -49,6 +49,10 @@ These large conceptual steps are:
 
 The details within each step are largely out of scope, but generally cobble together a series of smaller computational tasks that together perform one of these larger conceptual steps.
 
+We will now inspect each step, discuss what it does, and then run each step in turn.
+
+
+-----
 
 # Snakemake
 
