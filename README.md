@@ -43,8 +43,7 @@ These large conceptual steps are:
 
 1. Raw sequence read data pre-processing per sample (`01_qc.sh`)
 2. Alignment of reads to a reference with a short read aligner per sample (`02_align.sh`)
-3. Collation of all per-sample aligned reads into one large merged BAM (`03_merge.sh`)
-4. Variant calling and filtering on this merged set of samples (`04_varcall.sh`)
+3. Variant calling and filtering on each sample in this set of samples (`03_varcall.sh`)
 
 The details within each step are largely out of scope, but generally cobble together a series of smaller computational tasks that together perform one of these larger conceptual steps.
 
@@ -53,6 +52,8 @@ The details within each step are largely out of scope, but generally cobble toge
 
 For the remainder of today, we'll work on translating our variant-calling workflow above to a snakemake workflow. We'll follow the excellent online tutorial on snakemake, which you can find at <https://snakemake.readthedocs.io/en/stable/tutorial/basics.html>. I've copied the tutorial text with some changes of my own below. Here goes...
 
+
+## The anatomy of a Snakemake workflow
 
 **A Snakemake workflow is defined by specifying rules in a Snakefile**. **Rules decompose the workflow into small steps** (e.g., the application of a single tool) by specifying how to create sets of **output files** from sets of **input files**. Snakemake automatically **determines the dependencies** between the rules by matching file names. 
 
