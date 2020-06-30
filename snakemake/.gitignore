@@ -1,0 +1,3 @@
+outputs/*
+.snakemake
+rawdata/ecoli_rel606.fa*
