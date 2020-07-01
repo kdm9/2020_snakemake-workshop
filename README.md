@@ -357,3 +357,12 @@ rule bcftools_call:
         "samtools mpileup -g -f {input.fa} {input.bam} | "
         "bcftools call -mv - > {output}"
 ```
+
+# Snakemake: next steps
+
+Next week we'll cover some more advanced bits of snakemake, and some ancillary tools & topics
+
+- Snakemake: config files and metadata
+- Snakemake: interaction with queuing systems and clusters
+- Versioning workspaces with git
+- Managing installation and versioning of software per-workspace with conda environments
