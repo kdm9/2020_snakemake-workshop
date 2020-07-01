@@ -67,6 +67,14 @@ The Snakemake language extends the Python language, adding syntactic structures 
 
 In the following, we will introduce the Snakemake syntax by creating an example workflow. The workflow comes from the domain of genome analysis. It maps sequencing reads to a reference genome and call variants on the mapped reads. The tutorial does not require you to know what this is about. Nevertheless, we provide some background in the following paragraph.
 
+So, let's prepare a second workspace within which we'll make a snakemake-based variant calling workflow.
+
+```bash
+wget -O snakemake_version.tar https://github.com/kdmurray91/2020_snakemake-workshop/raw/master/snakemake_version.tar
+tar xvf snakemake_version.tar
+cd snakemake/rawdata/ && bash getref.sh
+cd ..
+```
 
 ## Step 1: Mapping reads
 
