@@ -303,7 +303,7 @@ from Snakemake considering the first rule of the workflow as default
 target, **the appearance of rules in the Snakefile is arbitrary and does
 not influence the DAG of jobs**.
 
-> **Note** In case you have mutliple reasonable sets of target files, you can add multiple target rules at the top of the Snakefile. While Snakemake will execute the first per default, you can target any of them via the command line (e.g., `snakemake -n mytarget`).
+> **Note** In case you have multiple reasonable sets of target files, you can add multiple target rules at the top of the Snakefile. While Snakemake will execute the first per default, you can target any of them via the command line (e.g., `snakemake -n mytarget`).
 
 ### Exercise
 
@@ -368,9 +368,161 @@ rule bcftools_call:
 
 # Snakemake: next steps
 
-Next week we'll cover some more advanced bits of snakemake, and some ancillary tools & topics
+In this second session of the Snakemake tutorial, we'll cover some more advanced features of Snakemake, and also some ancillary tools that make managing & sharing these workflows easier.
 
-- Snakemake: config files and metadata
-- Snakemake: interaction with queuing systems and clusters
-- Versioning workspaces with git
-- Managing installation and versioning of software per-workspace with conda environments
+
+## A more complete Snakemake file
+
+So far we've only shown a fairly minimal set of Snakemake features. Below, I'll briefly outline several useful features we can add to Snakefiles that assist us to write our workflows
+
+### Assigning CPUs to tasks in Snakemake
+
+Many tools in bioinformatics implement some form of internal parallelism. One example is our short read aligner, BWA MEM. If informed about these features, Snakemake can intelligently allocate a given number of CPUs to a single task, allowing more computationally efficient execution of workflows. This is particularly important when paired with Snakemake's ability to interact with clusters or cloud computing, as discussed below.
+
+To inform Snakemake about the number of CPUs ("threads") each task should be allocated, one can use a `threads:` block within the rule text. Let's see what that looks like when applied to our BWA MEM rule from earlier.
+
+
+```
+rule bwa_map:
+    input:
+        ref="rawdata/ecoli_rel606.fa",
+        reads="rawdata/reads/{sample}.fastq"
+    output:
+        "outputs/mapped_reads/{sample}.bam"
+    threads:
+        8
+    shell:
+        "bwa mem {input.ref} {input.reads} | samtools view -Sb - > {output}"
+```
+
+
+Importantly, one must inform Snakemake of the number of globally-available CPUs with the command line argument `-j N` (where N is the number of CPUs on your given machine). Say we have a 32 core machine, Snakemake would run up to 4 `bwa_map` jobs in parallel, each with 8 CPUs. For this reason, try to make the number you give `threads:` cleanly divisible into the number of CPUs on your server (`threads:` values of 2, 4, or 8 tend to work best on most systems).
+
+
+### Using config files to store configuration and metadata
+
+So far, we specified the samples to consider in a Python list within the Snakefile. However, often you want your workflow to be customizable, so that it can be easily adapted to new data. For this purpose, Snakemake provides a config file mechanism. Config files can be written in JSON or YAML, and loaded with the `configfile` directive. In our example workflow, we add the following line at the top of our `Snakefile` (in place of `SAMPLES = ...`).
+
+```
+configfile: "config.yml"
+SAMPLES = config["samples"]
+```
+
+Then, we need to create our configuration file. At a minimum, let's encode the sample names into our config file, by pasting the following into a new file called `config.yml`.
+
+```
+samples:
+    - A
+    - B
+```
+
+In reality, we'd also add many other details, perhaps including our adaptor sequences, or parameters to the variant calling algorithm. Config files are particularly important when working on large or multiple projects that may contain different sets of samples or have complex metadata that should not be hard-coded into our `Snakefile`.
+
+
+
+### Interaction with queuing systems
+
+At some point, you will likely encounter analyses so large that they would utilise a single server for weeks or even months on end, or perhaps not even be able to run at all on a single machine. In these cases, one needs to move analyses to some large, centralised shared computing platform. In academia, these are typically HPC clusters, a term for a large swarm of computers which cooperate to perform a series of tasks. At ANU we have access to the NCI's (brand spanking new shiny) cluster named Gadi.
+
+The use of these systems is out of scope of this lesson, but I'll briefly describe how they work for those who haven't used them. One interacts with an HPC cluster via a *head node*, which is a relatively weak server shared across many hundred simultaneous users. This *head node* does little or no actual computation, instead computational "batch jobs" are submitted to a scheduler, which selects one or more (or fraction thereof) servers on which your tasks will run. The job then runs in the background on some other machine, and eventually your analysis completes. If this system sounds complex an painful, then good, I've accurately described it.
+
+
+The good news is that Snakemake can be configured to submit jobs to a cluster with little extra effort on your behalf. I regularly use this feature to run very large variant calling runs on thousands of CPUs at once on NCI's Gadi cluster. The specifics of using this feature are quite system dependent, but I provide a minimal working configuration in this repository, and I briefly outline the logic below.
+
+```
+snakemake \
+    -j 3000 \   # number of parallel jobs
+    --cluster 'qsub -j ncpus={threads},mem={cluster.mem},walltime={cluster.time},wd' \ # minmal qsub command
+    --jobscript ./gadi/jobscript.sh \ # a template PBS batch script that sets environment varaibles & loads required software modules 
+```
+
+## Versioning our workflow
+
+To really reap the benefits of our recent work, we'd really like to version our workspace with git. This will allow us to easily save our changes, to push those changes to some public hosting site like GitHub (as a backup and to share with our collaborators), and to protect our workspace from accidental changes or deletions. A Snakemake workspace is not special as far as git is concerned, after all we've just made some text files. However, there are a few gotchas and recommendations I have for versioning Snakemake workspaces with git.
+
+Specifically, the first thing we need to do is to tell git about the various places we *don't* want it to look for files to keep track of. We do this using a gitignore file. At a minimum, I recommend adding the following as a gitignore file (let's do this first before we set up git).
+
+```bash
+$ cd ~/snakemake/snakemake #  Path to the directory with the Snakefile in it on my system, might differ
+$ ls Snakefile  # should work, let's confirm we're in the right place
+$ cat <<EOF >.gitignore
+.snakemake
+rawdata
+outputs
+EOF
+```
+
+The above will ignore the Snakemake temporary state directory (where Snakemake stores it's internal state), and our two data directories. If you have additional data directories, add them to this file. (To those that wonder what that command is doing, it's a way to type out a file's contents on the command line, and is called a HEREDOC. See [here for the docs (ha!)](https://stackoverflow.com/questions/2953081/how-can-i-write-a-heredoc-to-a-file-in-bash-script)).
+
+Now, let's initialise our workspace as a git repository, add our files, commit out first change set, and then set up a remote repository at GitHub and push our repository to GitHub.
+
+```bash
+$ git init # initialise a repo here
+$ git add . # add everything
+$ git status # check what we have added. As it says, use `git reset FILENAME` if you want to "un-add" any files
+$ git commit # commit a set of changes
+$ # now, go to github and make a new repo
+$ git remote add origin .....  # copy this from the github new repo page
+$ git push -u origin master  # actually push your changes
+```
+
+## Using `conda` to install and version software for our workspace
+
+Between a well organised workspace, a reproducible workflow managed with Snakemake, backed up and shareable raw data, and a versioned and shared git repository, we're 99% the way to frictionless collaboration. The last missing piece is the installation and management of the software we use in our workflow.
+
+Conda is a piece of software that acts as a packager, installer, dependency manager, and provides isolated environments of software written in pretty much any language. Consider it like pip and virualenvs, but not just for python, or like CRAN and packrat but not just for R. In practice you'll want to install miniconda with python3.X from <https://docs.conda.io/en/latest/miniconda.html>. 
+
+There are two approaches to using conda with Snakemake. The simplest is to have a single large conda environment that contains all software needed to run our Snakemake workflow (including Snakemake itself). Alternatively or in addition, Snakemake supports providing a conda environment definition file (which we'll see in a minute) for each individual rule. This is more complex, but allows the different steps of our analysis to depend on mutually exclusive versions of e.g. Python or R. For now, we'll only cover the simple one-environment-to-run-them-all approach; the per-rule way is well documented at the [snakemake tutorial site](https://snakemake.readthedocs.io/en/stable/tutorial/additional_features.html#automatic-deployment-of-software-dependencies).
+
+Conda environments are specified in a single YAML file which contains two main sections: a list of repositories that conda searches ("channels"), and a list of packages with optional versions that conda will find and install in an isolated environment. Here follows a conda environment for our Snakemake workflow; please save this as `environment.yml` next to our `Snakefile`.
+
+```
+name: snakevarcall
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.*
+  - snakemake
+  - bwa
+  - samtools
+  - bcftools
+```
+
+I have already installed conda globally on our teaching virtual machine, so you should now have access to the `conda` command. Let's type `conda` to check that's the case.
+
+```bash
+$ conda
+```
+
+Assuming that worked, we can now create our conda environment:
+
+```bash
+$ conda env create -f environment.yml
+```
+
+This may take some time installing Snakemake, samtools, bwa, and bcftools in an isolated environment. When finished, we'll be able to load our new environment:
+
+```bash
+$ conda activate snakevarcall
+```
+
+and then should be able to verify that we're referring to the correct samtools binary in an isolated environment:
+
+```bash
+$ which samtools
+# should be something like /home/youruser/.conda/envs/...../bin/samtools
+# NOT /usr/bin/samtools
+```
+
+# Conclusion
+
+So that's our snakemake workshop finished. I hope you all found that useful. Feel free to share this around as widely as it would be useful, and please also contact me if you have any questions. Below are some resources you may find useful:
+
+- The snakemake documentation site: <https://snakemake.readthedocs.io>
+- The exhaustive documentation on what a `rule:` block can contain: <https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html>
+- The documentation on installing and using conda: <https://docs.conda.io/projects/conda/en/latest/user-guide/index.html>
+
+# Credits
+
+This workshop was delivered by Kevin Murray <foss@kdmurray.id.au>. Large portions of this workshop are derived from the upstream documentation on snakemake, mostly written by Johannes Köster and Manuel Holtgrewe. Thanks to Tim Bonnet and the other helpers at RSB for making the workshop run so smoothly. 
