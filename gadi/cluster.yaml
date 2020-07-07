@@ -1,0 +1,12 @@
+__default__:
+  mem: 47G
+  queue: normal
+  time: '01:00:00'
+  jobfs: 400G
+  project: xe2
+  name: "SNK_{rule}"
+
+bwa_map:
+  time: '6:00:00'
+  mem: 12G
+
