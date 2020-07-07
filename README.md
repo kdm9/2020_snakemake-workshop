@@ -217,7 +217,6 @@ The DAG contains a node for each job and edges representing the dependencies. Jo
 
 
 ## Step 5: Calling genomic variants
---------------------------------
 
 The next step in our workflow will aggregate the mapped reads from all samples and jointly call genomic variants on them. For the variant calling, we will combine the two utilities [samtools](https://www.htslib.org) and [bcftools](https://www.htslib.org). Snakemake provides a **helper function for collecting input files** that helps us to describe the aggregation in this step. With
 
@@ -292,16 +291,12 @@ rule all:
 
 to the top of our workflow. When executing Snakemake with
 
-``` {.console}
+```bash
 $ snakemake -n
 ```
 
 
-the execution plan for creating the file `plots/quals.svg` which
-contains and summarizes all our results will be shown. Note that, apart
-from Snakemake considering the first rule of the workflow as default
-target, **the appearance of rules in the Snakefile is arbitrary and does
-not influence the DAG of jobs**.
+the execution plan for creating the file `output/calls/all.vcf` which contains and summarizes all our results will be shown. Note that, apart from Snakemake considering the first rule of the workflow as default target, **the appearance of rules in the Snakefile is arbitrary and does not influence the DAG of jobs**.
 
 > **Note** In case you have multiple reasonable sets of target files, you can add multiple target rules at the top of the Snakefile. While Snakemake will execute the first per default, you can target any of them via the command line (e.g., `snakemake -n mytarget`).
 
