@@ -387,7 +387,7 @@ rule bwa_map:
     threads:
         8
     shell:
-        "bwa mem {input.ref} {input.reads} | samtools view -Sb - > {output}"
+	"bwa mem -t {threads} {input.ref} {input.reads} | samtools view -Sb - > {output}"
 ```
 
 
@@ -407,8 +407,8 @@ Then, we need to create our configuration file. At a minimum, let's encode the s
 
 ```
 samples:
-    - A
-    - B
+    - SRR097977
+    - SRR098026
 ```
 
 In reality, we'd also add many other details, perhaps including our adaptor sequences, or parameters to the variant calling algorithm. Config files are particularly important when working on large or multiple projects that may contain different sets of samples or have complex metadata that should not be hard-coded into our `Snakefile`.
@@ -425,11 +425,28 @@ The use of these systems is out of scope of this lesson, but I'll briefly descri
 The good news is that Snakemake can be configured to submit jobs to a cluster with little extra effort on your behalf. I regularly use this feature to run very large variant calling runs on thousands of CPUs at once on NCI's Gadi cluster. The specifics of using this feature are quite system dependent, but I provide a minimal working configuration in this repository, and I briefly outline the logic below.
 
 ```
-snakemake \
-    -j 3000 \   # number of parallel jobs
-    --cluster 'qsub -j ncpus={threads},mem={cluster.mem},walltime={cluster.time},wd' \ # minmal qsub command
-    --jobscript ./gadi/jobscript.sh \ # a template PBS batch script that sets environment varaibles & loads required software modules 
+TARGET=${TARGET:-all}
+
+QSUB="qsub -q {cluster.queue} -l ncpus={threads} -l jobfs={cluster.jobfs}"
+QSUB="$QSUB -l walltime={cluster.time} -l mem={cluster.mem} -N {cluster.name} -l storage=scratch/xe2+gdata/xe2"
+QSUB="$QSUB -l wd -j oe -o gadi/logs -P {cluster.project}"
+
+snakemake                                                          \
+    -j 1000                                                        \
+    --max-jobs-per-second 2                                        \
+    --cluster-config gadi/cluster.yaml                             \
+    --local-cores ${PBS_NCPUS:-1}                                  \
+    --js gadi/jobscript.sh                                         \
+    --nolock                                                       \
+    --rerun-incomplete                                             \
+    --keep-going                                                   \
+    --cluster "$QSUB"                                              \
+    "$TARGET"                                                      
 ```
+
+See [`gadi/submit.sh`](gadi/submit.sh) for a working submission script
+
+
 
 ## Versioning our workflow
 
